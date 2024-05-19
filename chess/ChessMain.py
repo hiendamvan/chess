@@ -8,12 +8,12 @@ import pygame as p
 import ChessEngine, ChessAI
 import sys
 from multiprocessing import Process, Queue
-
+#! Đây là đối với board, đối với màn hình thì sẽ là 700, 512 gì đó. 
 BOARD_WIDTH = BOARD_HEIGHT = 512
 MOVE_LOG_PANEL_WIDTH = 250
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
-SQUARE_SIZE = BOARD_HEIGHT // DIMENSION
+SQUARE_SIZE = BOARD_HEIGHT // DIMENSION #! 64
 MAX_FPS = 15
 IMAGES = {}
 
@@ -37,38 +37,36 @@ def main():
     This will handle user input and updating the graphics.
     """
     p.init()
+    #! biến screen khởi tạo màn hình
     screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_PANEL_WIDTH, BOARD_HEIGHT))
+    #! clock để thể hiện thời gian chạy (cái này có thể display lên màn hình cho người dùng)
     clock = p.time.Clock()
+    #! fill với nền trắng
     screen.fill(p.Color("white"))
-    game_state = ChessEngine.GameState()
-    valid_moves = game_state.getValidMoves()
-    move_made = False  # flag variable for when a move is made
-    animate = False  # flag variable for when we should animate a move
-    loadImages()  # do this only once before while loop
+    
+    game_state = ChessEngine.GameState() #! class gamestate này để làm gì? 
+    
+    
+    valid_moves = game_state.getValidMoves() #! check toàn bộ move để xem cái nào valid
+    #print("This is my valid_moves in beginning: "+str(valid_moves)) #! class
+    move_made = False  #! biến flag, dùng để xác nhận nước đi được đi
+    animate = False  # flag variable for when we should animate a move. #! animate a move là gì?
+    loadImages()  # khởi tạo toàn bộ hình ảnh của Quân cờ
     running = True
     beginScreen = True
     square_selected = ()  # no square is selected initially, this will keep track of the last click of the user (tuple(row,col))
+    #print("This is my square_selected = (keep track of the last click of the user)"+str(square_selected)) #! nothing
     player_clicks = []  # this will keep track of player clicks (two tuples)
+    
     game_over = False
     ai_thinking = False
     move_undone = False
     move_finder_process = None
     move_log_font = p.font.SysFont("Arial", 14, False, False)
+    #! 2 biến quyết định chế độ chơi. True là người false là AI
     player_one = True  # if a human is playing white, then this will be True, else False
     player_two = True  # if a hyman is playing white, then this will be True, else False
     
-    
-    
-    # p.display.set_caption("hello world this is duc")
-    # font = p.font.Font('freesansbold.ttf',32)
-    # text = font.render("Wellcome to my chess game",True,(0,255,0),(0,0,128))
-    # text_rect = text.get_rect()
-    # text_rect.center = (BOARD_WIDTH//2,BOARD_HEIGHT//2)
-
-    # screen.fill((255,255,255))
-    # sleep(2)
-    # screen.blit(text,text_rect)
-    # sleep(1)
     
     font = p.font.Font('freesansbold.ttf', 32)
  
@@ -82,7 +80,7 @@ def main():
     
     # set the center of the rectangular object.
     textRect.center = (BOARD_WIDTH // 2, BOARD_HEIGHT // 2)
-    
+    #! --------------------------------- phần khởi động 2 màn hình trước khi vào  -------------------------------------------
     while beginScreen:
         for e in p.event.get():
             if e.type == p.QUIT:
@@ -110,13 +108,19 @@ def main():
         screen.blit(imp,(0,0))
         screen.blit(text,textRect)
         p.display.flip()
+    #! ----------------------------------------------------------------------------------------------------------------------------
     while running:
+        #! biến human_turn để biết có phải là người chơi hay không (chế độ người chơi hay máy chơi)
+        if (game_state.trangDiChuyen and player_one == True) or (not game_state.trangDiChuyen and player_two == True):
+            human_turn = True
+        else:
+            human_turn = False
         
-        human_turn = (game_state.white_to_move and player_one) or (not game_state.white_to_move and player_two)
         #! display man hinh khoi dong chuong trinh
         
         for e in p.event.get():
             if e.type == p.KEYDOWN:
+                #! -------------------------- quyết định chế độ chơi --------------------------------------
                 if e.key == p.K_1:
                     #! neu an 1 thi reset game lai
                     game_state = ChessEngine.GameState()
@@ -164,23 +168,41 @@ def main():
                     # move_undone = True
                     player_one = False
                     player_two = False
+            #! xong quyết định chế độ chơi ---------------------------------------------------------------
+            
+            
+            
             if e.type == p.QUIT:
                 p.quit()
                 sys.exit()
             # mouse handler
             elif e.type == p.MOUSEBUTTONDOWN:
                 if not game_over:
+                    #! location lấy vị trí thực của mouse ở trên màn ảnh. Nó không lấy theo ô vuông 
+                    #! mà lấy theo tọa độ đã định sẵn
                     location = p.mouse.get_pos()  # (x, y) location of the mouse
-                    col = location[0] // SQUARE_SIZE
+                    #print("This is my mouse location: "+str(location)) 
+                    
+                    #! nhận biết vị trí con trỏ chuột trên board
+                    col = location[0] // SQUARE_SIZE #! location / 64 (512 / 64 = 8!)
                     row = location[1] // SQUARE_SIZE
+                    #print("This is my row and col: ",(row,col))
                     if square_selected == (row, col) or col >= 8:  # user clicked the same square twice
                         square_selected = ()  # deselect
                         player_clicks = []  # clear clicks
                     else:
                         square_selected = (row, col)
+                        #! biến player click này chỉ tồn tại tới len = 2.
+                        #! trong quá trình bấm, nếu như tới lượt đen, mà tiếp tục bấm ô trắng, thì sẽ pop
+                        #! tọa độ đầu tiên của click ra ngoài
                         player_clicks.append(square_selected)  # append for both 1st and 2nd click
+                        #print("This is my current player_clicks: "+str(player_clicks))
                     if len(player_clicks) == 2 and human_turn:  # after 2nd click
                         move = ChessEngine.Move(player_clicks[0], player_clicks[1], game_state.board)
+                        #print("This is my piece moved: ",(move.piece_moved))
+                        #print("This is my startrow, startcol: ",(move.start_row, move.start_col))
+                        #print("This is my endrow, endcol: ",(move.end_row, move.end_col))
+                        #print("this is my piece captured: ",move.piece_captured)
                         for i in range(len(valid_moves)):
                             if move == valid_moves[i]:
                                 game_state.makeMove(valid_moves[i])
@@ -215,18 +237,25 @@ def main():
                         ai_thinking = False
                     move_undone = True
 
-        # AI move finder
+
+
+        #! AI tìm nước đi
         if not game_over and not human_turn and not move_undone:
             if not ai_thinking:
                 ai_thinking = True
                 return_queue = Queue()  # used to pass data between threads
-                move_finder_process = Process(target=ChessAI.findBestMove, args=(game_state, valid_moves, return_queue))
+                move_finder_process = Process(target=ChessAI.findBestMove, args=(game_state, valid_moves,return_queue))
+                
+                
                 move_finder_process.start()
 
             if not move_finder_process.is_alive():
                 ai_move = return_queue.get()
                 if ai_move is None:
+                    #! it should never call this!
+                    print("RANDOM IS CALLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL")
                     ai_move = ChessAI.findRandomMove(valid_moves)
+                # ai_move = ChessAI.greedySearch(game_state,valid_moves)
                 game_state.makeMove(ai_move)
                 move_made = True
                 animate = True
@@ -247,7 +276,7 @@ def main():
 
         if game_state.checkmate:
             game_over = True
-            if game_state.white_to_move:
+            if game_state.trangDiChuyen:
                 drawEndGameText(screen, "Black wins by checkmate")
             else:
                 drawEndGameText(screen, "White wins by checkmate")
@@ -296,7 +325,7 @@ def highlightSquares(screen, game_state, valid_moves, square_selected):
     if square_selected != ():
         row, col = square_selected
         if game_state.board[row][col][0] == (
-                'w' if game_state.white_to_move else 'b'):  # square_selected is a piece that can be moved
+                'w' if game_state.trangDiChuyen else 'b'):  # square_selected is a piece that can be moved
             # highlight selected square
             s = p.Surface((SQUARE_SIZE, SQUARE_SIZE))
             s.set_alpha(100)  # transparency value 0 -> transparent, 255 -> opaque
@@ -380,9 +409,9 @@ def animateMove(move, screen, board, clock):
         p.draw.rect(screen, color, end_square)
         # draw captured piece onto rectangle
         if move.piece_captured != '--':
-            if move.is_enpassant_move:
-                enpassant_row = move.end_row + 1 if move.piece_captured[0] == 'b' else move.end_row - 1
-                end_square = p.Rect(move.end_col * SQUARE_SIZE, enpassant_row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            if move.is_totQuaDuong_move:
+                totQuaDuong_row = move.end_row + 1 if move.piece_captured[0] == 'b' else move.end_row - 1
+                end_square = p.Rect(move.end_col * SQUARE_SIZE, totQuaDuong_row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
             screen.blit(IMAGES[move.piece_captured], end_square)
         # draw moving piece
         screen.blit(IMAGES[move.piece_moved], p.Rect(col * SQUARE_SIZE, row * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
